@@ -5,8 +5,8 @@
 ## 关于exdisk image的制作
 
 ```
-  mkfs.vfat -n "Internal SD" -F 32 -C usbdisk.tmp 1048576
-  dd if=usbdisk.tmp of=udisk.img bs=1024 count=20480
+  mkfs.vfat -n "ExtDisk" -F 32 -C exdisk.tmp 1048576
+  dd if=exdisk.tmp of=extdisk.img bs=1024 count=20480
  
   其中：
      - -n "ExtDisk" 是指定了卷标
