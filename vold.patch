@@ -1,0 +1,122 @@
+diff --git a/Disk.cpp b/Disk.cpp
+index 9c22400..e9e2851 100644
+--- a/Disk.cpp
++++ b/Disk.cpp
+@@ -70,6 +70,7 @@ static const unsigned int kMajorBlockScsiN = 133;
+ static const unsigned int kMajorBlockScsiO = 134;
+ static const unsigned int kMajorBlockScsiP = 135;
+ static const unsigned int kMajorBlockMmc = 179;
++static const unsigned int kMajorBlockExt = 259;
+ static const unsigned int kMajorBlockExperimentalMin = 240;
+ static const unsigned int kMajorBlockExperimentalMax = 254;
+ 
+@@ -232,6 +233,7 @@ status_t Disk::readMetadata() {
+     }
+ 
+     unsigned int majorId = major(mDevice);
++    unsigned int minorId = minor(mDevice);
+     switch (majorId) {
+     case kMajorBlockLoop: {
+         mLabel = "Virtual";
+@@ -269,6 +271,23 @@ status_t Disk::readMetadata() {
+         }
+         break;
+     }
++    case kMajorBlockExt: {
++
++        if(minorId != 18)
++            break;
++
++        std::string path(mSysPath + "/../device/manfid");
++        std::string tmp;
++        if (!ReadFileToString(path, &tmp)) {
++            PLOG(WARNING) << "Failed to read manufacturer from " << path;
++            return -errno;
++        }
++        uint64_t manfid = strtoll(tmp.c_str(), nullptr, 16);
++        switch (manfid) {
++        case 0x000015: mLabel = "Samsung"; break;
++        }
++        break;
++    }
+     default: {
+         if (isVirtioBlkDevice(majorId)) {
+             LOG(DEBUG) << "Recognized experimental block major ID " << majorId
+@@ -547,6 +566,7 @@ void Disk::notifyEvent(int event, const std::string& value) {
+ int Disk::getMaxMinors() {
+     // Figure out maximum partition devices supported
+     unsigned int majorId = major(mDevice);
++    unsigned int minorId = minor(mDevice);
+     switch (majorId) {
+     case kMajorBlockLoop: {
+         std::string tmp;
+@@ -572,6 +592,10 @@ int Disk::getMaxMinors() {
+         }
+         return atoi(tmp.c_str());
+     }
++    case kMajorBlockExt: {
++        if(minorId == 18)
++            return 1;//set only 1 max minor
++    }
+     default: {
+         if (isVirtioBlkDevice(majorId)) {
+             // drivers/block/virtio_blk.c has "#define PART_BITS 4", so max is
+diff --git a/PublicVolume.cpp b/PublicVolume.cpp
+index f976c4a..9fa4a48 100644
+--- a/PublicVolume.cpp
++++ b/PublicVolume.cpp
+@@ -110,7 +110,12 @@ status_t PublicVolume::doMount() {
+     if (!mFsUuid.empty()) {
+         stableName = mFsUuid;
+     }
+-
++#if 1//do not used uuid as the mount label name
++    const char* findExtDisk = strstr(getId().c_str(), "259,18");
++    if(findExtDisk != nullptr){
++        stableName = "extdisk";
++    }
++#endif
+     mRawPath = StringPrintf("/mnt/media_rw/%s", stableName.c_str());
+ 
+     mFuseDefault = StringPrintf("/mnt/runtime/default/%s", stableName.c_str());
+diff --git a/VolumeManager.cpp b/VolumeManager.cpp
+index 641611e..316b33e 100644
+--- a/VolumeManager.cpp
++++ b/VolumeManager.cpp
+@@ -100,6 +100,7 @@ static const char* kPropVirtualDisk = "persist.sys.virtual_disk";
+ static const unsigned int kSizeVirtualDisk = 536870912;
+ 
+ static const unsigned int kMajorBlockMmc = 179;
++static const unsigned int kMajorBlockExt = 259;
+ static const unsigned int kMajorBlockExperimentalMin = 240;
+ static const unsigned int kMajorBlockExperimentalMax = 254;
+ 
+@@ -349,12 +350,19 @@ void VolumeManager::handleBlockEvent(NetlinkEvent *evt) {
+     std::string eventPath(evt->findParam("DEVPATH")?evt->findParam("DEVPATH"):"");
+     std::string devType(evt->findParam("DEVTYPE")?evt->findParam("DEVTYPE"):"");
+ 
++#if 1//Take the partition as a disk type to mount
++    int major = atoi(evt->findParam("MAJOR"));
++    int minor = atoi(evt->findParam("MINOR"));
++    if (devType != "disk" &&  (major != 259 || minor != 18)) return;
++    LOG(WARNING) << "makedev devType:  " << devType << " major: " << major << " minor: " << minor;
++    dev_t device = makedev(major, minor);
++#else
+     if (devType != "disk") return;
+ 
+     int major = atoi(evt->findParam("MAJOR"));
+     int minor = atoi(evt->findParam("MINOR"));
+     dev_t device = makedev(major, minor);
+-
++#endif
+     switch (evt->getAction()) {
+     case NetlinkEvent::Action::kAdd: {
+         for (const auto& source : mDiskSources) {
+@@ -364,6 +372,7 @@ void VolumeManager::handleBlockEvent(NetlinkEvent *evt) {
+                 // devices are SD, and that everything else is USB
+                 int flags = source->getFlags();
+                 if (major == kMajorBlockMmc
++                    || major == kMajorBlockExt
+                     || (eventPath.find("ufs") != std::string::npos)
+                     || (android::vold::IsRunningInEmulator()
+                     && major >= (int) kMajorBlockExperimentalMin

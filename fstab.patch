@@ -1,0 +1,12 @@
+diff --git a/fstabs-3.18/fstab_non_AB_variant.qti b/fstabs-3.18/fstab_non_AB_variant.qti
+index 3b8f6cb..ababf67 100755
+--- a/fstabs-3.18/fstab_non_AB_variant.qti
++++ b/fstabs-3.18/fstab_non_AB_variant.qti
+@@ -38,6 +38,7 @@
+ /devices/platform/soc/7864900.sdhci/mmc_host*        /storage/sdcard1 vfat  nosuid,nodev         wait,voldmanaged=sdcard1:auto,noemulatedsd,encryptable=footer
+ /devices/platform/soc/7000000.ssusb/7000000.dwc3/xhci-hcd.0.auto*  /storage/usbotg  vfat  nosuid,nodev  wait,voldmanaged=usbotg:auto
+ /devices/soc/7864900.sdhci/mmc_host*        /storage/sdcard1 vfat  nosuid,nodev         wait,voldmanaged=sdcard1:auto,noemulatedsd,encryptable=footer
++/devices/soc/7824900.sdhci/mmc_host/mmc0/mmc0:0001/block/mmcblk0/mmcblk0p50 /storage/extdisk   vfat   nosuid,nodev  wait,voldmanaged=extdisk:auto,noemulatedsd,encryptable=footer
+ /devices/soc/7000000.ssusb/7000000.dwc3/xhci-hcd.0.auto*  /storage/usbotg  vfat  nosuid,nodev  wait,voldmanaged=usbotg:auto
+ /dev/block/bootdevice/by-name/config        /frp         emmc    defaults                                    defaults
+ /dev/block/bootdevice/by-name/misc          /misc        emmc    defaults                                    defaults
